@@ -1,0 +1,24 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Qt temporary files
+*.qrc~
+*.ui~
+*.pyproject
+
+# Optional virtual envs (if ever made inside project)
+env/
+.venv/
+
+# OS/editor stuff
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

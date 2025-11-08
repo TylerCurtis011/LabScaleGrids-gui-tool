@@ -1,0 +1,14 @@
+<RCC>
+  <qresource prefix="/images">
+    <file>images/iv.png</file>
+    <file>images/background5.JPG</file>
+    <file>images/background4.JPG</file>
+    <file>images/background3.JPG</file>
+    <file>images/background2.JPG</file>
+    <file>images/AC_Grid.png</file>
+    <file>images/background.jpg</file>
+    <file>images/cloud.png</file>
+    <file>images/DC_Grid.png</file>
+    <file>images/sun.png</file>
+  </qresource>
+</RCC>
