@@ -21,3 +21,5 @@ Activate conda env, and run main.py
 
 conda activate sas_env
 python SRC/main.py
+
+test
