@@ -24,6 +24,5 @@ Thumbs.db
 .idea/
 
 # Ignore images source folders
-SRC/images
 SRC/BlockDiagram
 SRC/resource_rc.py
