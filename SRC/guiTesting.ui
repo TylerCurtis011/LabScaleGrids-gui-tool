@@ -19,7 +19,7 @@
 }</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <widget class="QSlider" name="horizontalSlider">
+   <widget class="QSlider" name="Irradiance_Slider">
     <property name="geometry">
      <rect>
       <x>330</x>
@@ -159,7 +159,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -179,7 +179,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -202,7 +202,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -222,7 +222,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -245,7 +245,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -332,7 +332,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -355,7 +355,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -378,7 +378,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -398,7 +398,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -421,7 +421,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -441,7 +441,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -464,7 +464,7 @@ QSlider::handle:horizontal {
           </property>
           <property name="font">
            <font>
-            <pointsize>30</pointsize>
+            <pointsize>23</pointsize>
             <weight>75</weight>
             <bold>true</bold>
            </font>
@@ -479,6 +479,38 @@ QSlider::handle:horizontal {
      </item>
     </layout>
    </widget>
+   <widget class="QGraphicsView" name="AC_IV">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>10</y>
+      <width>301</width>
+      <height>241</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
+   <widget class="QGraphicsView" name="DC_IV">
+    <property name="geometry">
+     <rect>
+      <x>820</x>
+      <y>10</y>
+      <width>301</width>
+      <height>241</height>
+     </rect>
+    </property>
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+      <horstretch>0</horstretch>
+      <verstretch>0</verstretch>
+     </sizepolicy>
+    </property>
+   </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -486,7 +518,7 @@ QSlider::handle:horizontal {
      <x>0</x>
      <y>0</y>
      <width>1318</width>
-     <height>21</height>
+     <height>26</height>
     </rect>
    </property>
   </widget>

@@ -1,0 +1,1 @@
+sas.write(f":SAS:MODE IMMediate (@{CHANNEL})")

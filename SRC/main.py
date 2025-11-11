@@ -2,7 +2,8 @@ import sys
 import time
 import pyvisa
 from PyQt5 import QtWidgets, QtCore
-from gui import Ui_MainWindow  # GUI file
+#from gui import Ui_MainWindow  # GUI file
+from guiTesting import Ui_MainWindow  # GUI file
 
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):

@@ -8,7 +8,7 @@ https://www.keysight.com/us/en/lib/software-detail/computer-software/io-librarie
 ____________________________________________________________________________________________________________________
 
 Use anaconda env in repo
-conda env create -f environment.yml
+conda env create -f environment.yml NEED TO UPDATE YML FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 _____________________________________________________
 
 Convert gui, and resource files to .py
