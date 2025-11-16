@@ -24,11 +24,26 @@ dependencies:
   - pip:
       - cffi==2.0.0
       - clr-loader==0.2.8
+      - contourpy==1.3.0
+      - cycler==0.12.1
+      - fonttools==4.60.1
+      - importlib-resources==6.5.2
+      - kiwisolver==1.4.7
+      - matplotlib==3.9.4
+      - numpy==2.0.2
+      - packaging==25.0
+      - pillow==11.3.0
       - pycparser==2.23
+      - pyparsing==3.2.5
       - pyqt5==5.15.11
       - pyqt5-qt5==5.15.2
       - pyqt5-sip==12.17.1
+      - pyqtgraph==0.13.7
+      - python-dateutil==2.9.0.post0
       - pythonnet==3.0.5
       - pyvisa==1.14.1
+      - pywin32==311
+      - six==1.17.0
       - typing-extensions==4.15.0
+      - zipp==3.23.0
 
