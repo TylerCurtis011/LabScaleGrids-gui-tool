@@ -1,46 +1,53 @@
-import pyvisa
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Configuration
-SAS_VISA_ADDRESS = "USB0::0x0957::0x1107::MY55000177::0::INSTR"
-CHANNEL = 1
+def sas_iv_curve(Voc, Isc, Vmp, Imp, points=4096):
+    """
+    Generate I-V and P-V curves based on SAS exponential model.
+    Matches internal DAC table approximation.
+    """
+    # Step 1: Compute model parameters
+    Rs = (Voc - Vmp) / Imp
+    a = (Vmp * (1 + (Rs * Isc / Voc)) + Rs * (Imp - Isc)) / Voc
+    N = np.log(2 - 2**a) / np.log(Imp / Isc)
 
-# Initial full-power values
-ISC_FULL = 4.25
-IMP_FULL = 4.25
-VMP_FULL = 60.0
-VOC_FULL = 65.0
+    # Step 2: Generate current points (from Isc to 0)
+    I = np.linspace(Isc, 0, points)
 
-# Half-power currents
-ISC_HALF = 2.0
-IMP_HALF = 2.0
+    # Step 3: Compute voltage for each current
+    V = (
+        ((Voc * np.log(2 - (I / Isc) ** N) / np.log(2)) - Rs * (I - Isc))
+        / (1 + (Rs * Isc / Voc))
+    )
 
-# Connect to SAS
-rm = pyvisa.ResourceManager(r"C:\\Windows\\System32\\visa64.dll")
-sas = rm.open_resource(SAS_VISA_ADDRESS)
-sas.timeout = 5000
-sas.clear()
+    # Step 4: Compute power
+    P = V * I
 
-print("Connected to SAS:", sas.query("*IDN?").strip())
+    return V, I, P, Rs, a, N
 
-# --- Read initial voltage/current ---
-voltage = float(sas.query("MEAS:VOLT?"))
-current = float(sas.query("MEAS:CURR?"))
-print(f"Initial readings -> Voltage: {voltage:.2f} V, Current: {current:.2f} A")
 
-# --- Coupled command: set ISC and IMP together ---
-cmd = (f"CURR:SAS:ISC {ISC_HALF},(@{CHANNEL});"
-       f"IMP {IMP_HALF},(@{CHANNEL});"
-       f":VOLT:SAS:VMP {VMP_FULL},(@{CHANNEL});"
-       f"VOC {VOC_FULL},(@{CHANNEL})")
-sas.write(cmd)
-sas.query("*OPC?")
-print("SAS set with coupled parameters (ISC/IMP/VMP/VOC)")
+# Example usage:
+Voc = 36.0  # open circuit voltage (V)
+Isc = 8.5   # short circuit current (A)
+Vmp = 30.0  # voltage at max power point (V)
+Imp = 7.8   # current at max power point (A)
 
-# --- Read updated voltage/current ---
-voltage = float(sas.query("MEAS:VOLT?"))
-current = float(sas.query("MEAS:CURR?"))
-print(f"Updated readings -> Voltage: {voltage:.2f} V, Current: {current:.2f} A")
+V, I, P, Rs, a, N = sas_iv_curve(Voc, Isc, Vmp, Imp, points=4096)
 
-# Close connection
-sas.close()
-print("SAS connection closed.")
+print(f"Rs = {Rs:.4f} Ω, a = {a:.4f}, N = {N:.4f}")
+print(f"Vmp ~ {V[np.argmax(P)]:.3f} V, Imp ~ {I[np.argmax(P)]:.3f} A, Pmax = {max(P):.2f} W")
+
+# Plot results
+plt.figure()
+plt.plot(V, I)
+plt.xlabel("Voltage (V)")
+plt.ylabel("Current (A)")
+plt.title("SAS I–V Curve")
+
+plt.figure()
+plt.plot(V, P)
+plt.xlabel("Voltage (V)")
+plt.ylabel("Power (W)")
+plt.title("SAS P–V Curve")
+
+plt.show()

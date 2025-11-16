@@ -3,7 +3,8 @@ import pyvisa
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
-from guiTesting import Ui_MainWindow  # your GUI file
+from guiTesting import Ui_MainWindow  # your .ui converted Python file
+
 
 # ----------------------------------------------------------------
 # Background worker thread
@@ -52,7 +53,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
 
-        # --- Initialize IV Graphs ---
+        # --- Initialize I-V Graphs ---
         self.init_iv_graphs()
 
         # --- VISA Initialization ---
@@ -67,23 +68,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.inst_ac = self.connect_instrument(self.visa_sas, "SAS")
         self.inst_grid = self.connect_instrument(self.visa_grid, "Grid Source")
 
-        # --- Start worker thread ---
+        # --- Start background data worker ---
         self.worker = DataWorker(inst_ac=self.inst_ac, inst_grid=self.inst_grid)
         self.worker.data_ready.connect(self.update_display)
         self.worker.start()
 
-        # --- Irradiance Scaling Variables ---
+        # --- Irradiance parameters ---
         self.isc_max = 4.25
-        self.imp_max = 4.25
+        self.imp_max = 4.25 * 0.9
         self.voc_nom = 65.0
         self.vmp_nom = 60.0
 
+        # --- Slider control logic ---
         self.last_slider_val = None
         self.slider_timer = QtCore.QTimer()
         self.slider_timer.setSingleShot(True)
         self.slider_timer.timeout.connect(self.apply_slider_update)
-
-        # --- Connect slider ---
         self.Irradiance_Slider.valueChanged.connect(self.on_slider_changed)
 
     # ----------------------------------------------------------------
@@ -107,42 +107,75 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
 
     # ----------------------------------------------------------------
     def apply_slider_update(self):
-        """Apply irradiance scaling to SAS using coupled SCPI commands (exact working syntax)."""
+        """Apply irradiance scaling and update SAS + curve display."""
         if not self.inst_ac or self.last_slider_val is None:
             return
-    
+
         try:
             scale = self.last_slider_val / 100.0
-    
             isc = self.isc_max * scale
             imp = self.imp_max * scale
             voc = self.voc_nom * (0.98 + 0.02 * scale)
             vmp = self.vmp_nom * (0.98 + 0.02 * scale)
-    
-            # Safety: ensure IMP <= ISC
-            if imp > isc:
-                imp = isc * 0.999
-    
-            # --- Coupled SAS command (exact syntax that works) ---
+
+            if imp >= isc:
+                imp = isc * 0.95  # prevent singularities
+
+            # --- Update SAS instrument ---
             cmd = (
                 f"CURR:SAS:ISC {isc:.3f},(@1);"
                 f"IMP {imp:.3f},(@1);"
                 f":VOLT:SAS:VMP {vmp:.3f},(@1);"
                 f"VOC {voc:.3f},(@1)"
             )
-    
             self.inst_ac.write(cmd)
-            self.inst_ac.query("*OPC?")  # wait until command completes
-    
+            self.inst_ac.query("*OPC?")  # wait until done
+
             print(f"[Irradiance={scale*100:.0f}%] ISC={isc:.3f}, IMP={imp:.3f}, VMP={vmp:.2f}, VOC={voc:.2f}")
-    
+
+            # --- Update simulated IV curve on GUI ---
+            V, I, P = self.sas_iv_curve(Voc=voc, Isc=isc, Vmp=vmp, Imp=imp)
+            if len(V) == 0 or np.all(np.isnan(V)):
+                print("Invalid I-V curve skipped.")
+                return
+
+            self.ac_curve_IV.setData(V, I)
+            self.ac_curve_PV.setData(V, P / max(P) * self.isc_max)  # normalized overlay
+
+            idx_mpp = np.argmax(P)
+            self.ac_mpp_marker.setData([V[idx_mpp]], [I[idx_mpp]])
+
         except Exception as e:
             print("Error applying irradiance scale:", e)
 
+    # ----------------------------------------------------------------
+    def sas_iv_curve(self, Voc, Isc, Vmp, Imp, points=4096):
+        """Generate theoretical SAS I-V and P-V curves (stable version)."""
+        try:
+            if Imp >= Isc:
+                Imp = Isc * 0.95
+
+            Rs = (Voc - Vmp) / Imp
+            a = (Vmp * (1 + (Rs * Isc / Voc)) + Rs * (Imp - Isc)) / Voc
+            ratio = np.clip(Imp / Isc, 1e-6, 0.999)
+            N = np.log(2 - 2**a) / np.log(ratio)
+
+            I = np.linspace(Isc, 0, points)
+            arg = 2 - np.power(I / Isc, N)
+            arg = np.clip(arg, 1e-9, None)
+            V = ((Voc * np.log(arg) / np.log(2)) - Rs * (I - Isc)) / (1 + (Rs * Isc / Voc))
+            P = V * I
+
+            mask = np.isfinite(V) & np.isfinite(I) & (V >= 0)
+            return V[mask], I[mask], P[mask]
+
+        except Exception as e:
+            print("Error generating I-V curve:", e)
+            return np.array([]), np.array([]), np.array([])
 
     # ----------------------------------------------------------------
     def init_iv_graphs(self):
-        """Initialize the I-V graph area."""
+        """Initialize the I-V graph area with fixed bounds."""
         self.pg_AC = pg.PlotWidget()
         layout_ac = QtWidgets.QVBoxLayout(self.AC_IV)
         layout_ac.addWidget(self.pg_AC)
@@ -154,6 +187,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pg_AC.setLabel("left", "Current (A) / Power (W)")
         self.pg_AC.setTitle("AC SAS I-V and P-V Curve")
 
+        # --- Fixed axis limits ---
+        self.pg_AC.setXRange(0, 70)  # voltage range
+        self.pg_AC.setYRange(0, 5)   # current/power range
+        self.pg_AC.enableAutoRange(False, False)
+
+        # --- Add curves ---
         self.ac_curve_IV = self.pg_AC.plot(pen=pg.mkPen("b", width=2), name="I-V")
         self.ac_curve_PV = self.pg_AC.plot(pen=pg.mkPen("r", style=QtCore.Qt.DashLine), name="P-V")
         self.ac_mpp_marker = self.pg_AC.plot(symbol="x", symbolBrush="r", symbolSize=10)
@@ -180,6 +219,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         event.accept()
 
 
+# ----------------------------------------------------------------
+# Run application
 # ----------------------------------------------------------------
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
