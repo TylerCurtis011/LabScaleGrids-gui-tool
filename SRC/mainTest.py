@@ -3,8 +3,7 @@ import pyvisa
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
-from guiTesting import Ui_MainWindow  # your .ui converted Python file
-
+from guiTesting import Ui_MainWindow  # your converted .ui -> python file
 
 # ----------------------------------------------------------------
 # Background worker thread
@@ -25,9 +24,9 @@ class DataWorker(QtCore.QThread):
                 if self.inst_ac:
                     v_ac = float(self.inst_ac.query("MEAS:VOLT?"))
                     i_ac = float(self.inst_ac.query("MEAS:CURR?"))
-                    data["ac_voltage"] = v_ac
-                    data["ac_current"] = i_ac
-                    data["ac_power"] = v_ac * i_ac
+                    data["sas_voltage"] = v_ac
+                    data["sas_current"] = i_ac
+                    data["sas_power"]   = v_ac * i_ac
 
                 if self.inst_grid:
                     data["grid_power"] = float(self.inst_grid.query("MEAS:POW:AC?"))
@@ -38,7 +37,7 @@ class DataWorker(QtCore.QThread):
             if data:
                 self.data_ready.emit(data)
 
-            self.msleep(500)
+            self.msleep(250)
 
     def stop(self):
         self._running = False
@@ -53,38 +52,49 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
 
-        # --- Initialize I-V Graphs ---
-        self.init_iv_graphs()
-
-        # --- VISA Initialization ---
+        # VISA
         self.rm = pyvisa.ResourceManager(r"C:\\Windows\\System32\\visa64.dll")
         print("VISA resources visible:", self.rm.list_resources())
 
-        # --- Device VISA Addresses ---
-        self.visa_sas = "USB0::0x0957::0x1107::MY55000177::0::INSTR"   # SAS
-        self.visa_grid = "USB0::0x2A8D::0x1A02::JPCQ005523::0::INSTR"  # Grid Source
+        # instrument addresses
+        self.visa_sas = "USB0::0x0957::0x1107::MY55000177::0::INSTR"
+        self.visa_grid = "USB0::0x2A8D::0x1A02::JPCQ005523::0::INSTR"
 
-        # --- Connect Instruments ---
         self.inst_ac = self.connect_instrument(self.visa_sas, "SAS")
         self.inst_grid = self.connect_instrument(self.visa_grid, "Grid Source")
 
-        # --- Start background data worker ---
+        # background worker
         self.worker = DataWorker(inst_ac=self.inst_ac, inst_grid=self.inst_grid)
         self.worker.data_ready.connect(self.update_display)
         self.worker.start()
 
-        # --- Irradiance parameters ---
+        # nominal parameters
         self.isc_max = 4.25
         self.imp_max = 4.25 * 0.9
         self.voc_nom = 65.0
         self.vmp_nom = 60.0
 
-        # --- Slider control logic ---
+        # graph bounds (fixed)
+        self.x_max = 70.0
+        self.y_max = 5.0
+
+        # PV scale from your QGraphics version 
+        self.PV_SCALE_FACTOR = 0.6 / 60.0  # ≈ 0.008333
+
+        # iv graph setup
+        self.init_iv_graphs()
+
+        # slider debounce
         self.last_slider_val = None
         self.slider_timer = QtCore.QTimer()
         self.slider_timer.setSingleShot(True)
         self.slider_timer.timeout.connect(self.apply_slider_update)
         self.Irradiance_Slider.valueChanged.connect(self.on_slider_changed)
+
+        # holds last SAS real MPP
+        self.last_real_mpp_v = 0
+        self.last_real_mpp_i = 0
+
 
     # ----------------------------------------------------------------
     def connect_instrument(self, visa_address, label):
@@ -99,15 +109,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             print(f"Failed to connect to {label} ({visa_address}):", e)
             return None
 
+
     # ----------------------------------------------------------------
     def on_slider_changed(self, value):
-        """Triggered when irradiance slider moves."""
         self.last_slider_val = value
-        self.slider_timer.start(300)  # debounce delay
+        self.slider_timer.start(250)
+
 
     # ----------------------------------------------------------------
     def apply_slider_update(self):
-        """Apply irradiance scaling and update SAS + curve display."""
         if not self.inst_ac or self.last_slider_val is None:
             return
 
@@ -119,63 +129,71 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             vmp = self.vmp_nom * (0.98 + 0.02 * scale)
 
             if imp >= isc:
-                imp = isc * 0.95  # prevent singularities
+                imp = isc * 0.95
 
-            # --- Update SAS instrument ---
+            # write SAS
             cmd = (
                 f"CURR:SAS:ISC {isc:.3f},(@1);"
                 f"IMP {imp:.3f},(@1);"
                 f":VOLT:SAS:VMP {vmp:.3f},(@1);"
                 f"VOC {voc:.3f},(@1)"
             )
+
             self.inst_ac.write(cmd)
-            self.inst_ac.query("*OPC?")  # wait until done
+            self.inst_ac.query("*OPC?")
 
-            print(f"[Irradiance={scale*100:.0f}%] ISC={isc:.3f}, IMP={imp:.3f}, VMP={vmp:.2f}, VOC={voc:.2f}")
+            # regenerate theoretical I–V/P–V
+            V, I, P = self.sas_iv_curve(voc, isc, vmp, imp)
 
-            # --- Update simulated IV curve on GUI ---
-            V, I, P = self.sas_iv_curve(Voc=voc, Isc=isc, Vmp=vmp, Imp=imp)
-            if len(V) == 0 or np.all(np.isnan(V)):
-                print("Invalid I-V curve skipped.")
+            if len(V) == 0:
                 return
 
-            self.ac_curve_IV.setData(V, I)
-            self.ac_curve_PV.setData(V, P / max(P) * self.isc_max)  # normalized overlay
+            # -----------------------------
+            # POWER CURVE SCALING 
+            # -----------------------------
+            P_scaled = P * self.PV_SCALE_FACTOR
 
-            idx_mpp = np.argmax(P)
-            self.ac_mpp_marker.setData([V[idx_mpp]], [I[idx_mpp]])
+            self.ac_curve_IV.setData(V, I)
+            self.ac_curve_PV.setData(V, P_scaled)
 
         except Exception as e:
             print("Error applying irradiance scale:", e)
 
+
     # ----------------------------------------------------------------
-    def sas_iv_curve(self, Voc, Isc, Vmp, Imp, points=4096):
-        """Generate theoretical SAS I-V and P-V curves (stable version)."""
+    def sas_iv_curve(self, Voc, Isc, Vmp, Imp, points=2048):
         try:
+            if Isc <= 0:
+                return np.array([]), np.array([]), np.array([])
+
             if Imp >= Isc:
                 Imp = Isc * 0.95
 
             Rs = (Voc - Vmp) / Imp
             a = (Vmp * (1 + (Rs * Isc / Voc)) + Rs * (Imp - Isc)) / Voc
-            ratio = np.clip(Imp / Isc, 1e-6, 0.999)
-            N = np.log(2 - 2**a) / np.log(ratio)
+
+            ratio = np.clip(Imp / Isc, 1e-9, 0.999999)
+
+            baseN = np.clip(2 - 2**a, 1e-12, None)
+            N = np.log(baseN) / np.log(ratio)
 
             I = np.linspace(Isc, 0, points)
-            arg = 2 - np.power(I / Isc, N)
-            arg = np.clip(arg, 1e-9, None)
-            V = ((Voc * np.log(arg) / np.log(2)) - Rs * (I - Isc)) / (1 + (Rs * Isc / Voc))
+            term = 2 - (I / Isc)**N
+            term = np.clip(term, 1e-12, None)
+
+            V = ((Voc * np.log(term) / np.log(2)) - Rs * (I - Isc)) / (1 + (Rs * Isc / Voc))
             P = V * I
 
-            mask = np.isfinite(V) & np.isfinite(I) & (V >= 0)
+            mask = np.isfinite(V) & (V >= 0)
             return V[mask], I[mask], P[mask]
 
         except Exception as e:
-            print("Error generating I-V curve:", e)
+            print("IV error:", e)
             return np.array([]), np.array([]), np.array([])
+
 
     # ----------------------------------------------------------------
     def init_iv_graphs(self):
-        """Initialize the I-V graph area with fixed bounds."""
         self.pg_AC = pg.PlotWidget()
         layout_ac = QtWidgets.QVBoxLayout(self.AC_IV)
         layout_ac.addWidget(self.pg_AC)
@@ -184,25 +202,39 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pg_AC.addLegend()
         self.pg_AC.showGrid(x=True, y=True)
         self.pg_AC.setLabel("bottom", "Voltage (V)")
-        self.pg_AC.setLabel("left", "Current (A) / Power (W)")
+        self.pg_AC.setLabel("left", "Current (A) / Power (scaled)")
         self.pg_AC.setTitle("AC SAS I-V and P-V Curve")
 
-        # --- Fixed axis limits ---
-        self.pg_AC.setXRange(0, 70)  # voltage range
-        self.pg_AC.setYRange(0, 5)   # current/power range
+        self.pg_AC.setXRange(0, self.x_max)
+        self.pg_AC.setYRange(0, self.y_max)
         self.pg_AC.enableAutoRange(False, False)
 
-        # --- Add curves ---
         self.ac_curve_IV = self.pg_AC.plot(pen=pg.mkPen("b", width=2), name="I-V")
-        self.ac_curve_PV = self.pg_AC.plot(pen=pg.mkPen("r", style=QtCore.Qt.DashLine), name="P-V")
-        self.ac_mpp_marker = self.pg_AC.plot(symbol="x", symbolBrush="r", symbolSize=10)
+        self.ac_curve_PV = self.pg_AC.plot(pen=pg.mkPen("orange", width=2), name="P-V (scaled)")
+
+        # REAL SAS MPP marker (new behavior)
+        self.ac_mpp_real = self.pg_AC.plot(symbol="x", symbolBrush="g", symbolSize=14, name="SAS MPP")
+
 
     # ----------------------------------------------------------------
     def update_display(self, data):
-        if "ac_power" in data:
-            self.AC_SAS_Power.setText(f"{data['ac_power']:.2f} W")
+
+        # update SAS values
+        if "sas_power" in data:
+            p = data["sas_power"]
+            v = data["sas_voltage"]
+            i = data["sas_current"]
+
+            self.AC_SAS_Power.setText(f"{p:.2f} W")
+
+            # update *real* MPP marker (SAS live)
+            self.ac_mpp_real.setData([v], [i])
+
+
+        # update grid if present
         if "grid_power" in data:
             self.Grid_Power.setText(f"{data['grid_power']:.2f} W")
+
 
     # ----------------------------------------------------------------
     def closeEvent(self, event):
@@ -219,8 +251,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         event.accept()
 
 
-# ----------------------------------------------------------------
-# Run application
 # ----------------------------------------------------------------
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
