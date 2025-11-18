@@ -22,4 +22,5 @@ Activate conda env, and run main.py
 conda activate sas_env
 python SRC/main.py
 
-test
+com port on power meter
+USB-SERIAL CH340 (COMX)

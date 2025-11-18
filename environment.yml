@@ -34,11 +34,13 @@ dependencies:
       - packaging==25.0
       - pillow==11.3.0
       - pycparser==2.23
+      - pymodbus==3.8.6
       - pyparsing==3.2.5
       - pyqt5==5.15.11
       - pyqt5-qt5==5.15.2
       - pyqt5-sip==12.17.1
       - pyqtgraph==0.13.7
+      - pyserial==3.5
       - python-dateutil==2.9.0.post0
       - pythonnet==3.0.5
       - pyvisa==1.14.1
