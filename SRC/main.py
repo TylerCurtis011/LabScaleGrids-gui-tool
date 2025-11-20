@@ -95,7 +95,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         # EM511 Modbus RS485
         # ---------------------------------------------------
         self.pm = ModbusSerialClient(
-            port="COM3",  # <-- UPDATE THIS
+            port="COM6",  # <-- UPDATE THIS---------------------------------------------------
             baudrate=9600,
             parity="E",
             stopbits=1,
@@ -232,6 +232,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.pg_AC.setBackground("w")
         self.pg_AC.addLegend()
         self.pg_AC.showGrid(x=True, y=True)
+
+        self.pg_AC.setLabel("left", "Current (A)")
+        self.pg_AC.setLabel("bottom", "Voltage (V)")
 
         self.pg_AC.setXRange(0, self.x_max)
         self.pg_AC.setYRange(0, self.y_max)
