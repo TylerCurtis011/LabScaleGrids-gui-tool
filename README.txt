@@ -1,26 +1,26 @@
-
-Download Keysight IO-libraries (x64 IOLS)
 Follow Directions on keysight page:
-Important note**
+https://docs.keysight.com/kkbopen/getting-started-automate-keysight-instruments-using-python-3-9-845872587.html
+
+Important note from page**
 (For best interoperatibilty with NI-VISA, it is recommended to install NI-VISA first through NI Package Manager and then Keysight IO Libraries Suite.)
-
-https://www.keysight.com/us/en/lib/software-detail/computer-software/io-libraries-suite-downloads-2175637.html
-____________________________________________________________________________________________________________________
-
+_______________________________________________________________________________________________________________________________________________________
 Use anaconda env in repo
-conda env create -f environment.yml NEED TO UPDATE YML FILE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+conda env create -f environment.yml 
+conda activate sas_env
 _____________________________________________________
 
 Convert gui, and resource files to .py
 
-pyuic5 -x test.ui -o test.py
+pyuic5 -x guiTest.ui -o guiTest.py
 pyrcc5 resource.qrc -o resource_rc.py
 _____________________________________________________
 
-Activate conda env, and run main.py
+Update com port # for power meter in code (line 98)
+Device Manager\ports (COM and LPT)\USB-SERIAL CH340 (COMX)
+_____________________________________________________
 
-conda activate sas_env
-python SRC/main.py
+Run mainTest.py
+python SRC/mainTest.py
 
-com port on power meter
-USB-SERIAL CH340 (COMX)
+Additionally, if using a TV or a large display, adjust the aspect ratio and zoom for the best appearance. For me, 1920x1080 and 175% zoom worked well.
+
